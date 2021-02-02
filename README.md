@@ -16,7 +16,31 @@ See documentation below, or more examples in [unit tests](https://github.com/Dri
 **Sample usage:**
 
 ```cs
+
+public class SalesOrderHeader
+{
+    public decimal TotalDue { get; set; }
+	public decimal Freight { get; set; }
+}
+
 var isHeavyOrExpensiveFormula = UserDefinedExpression<SalesOrderHeader, bool>.Create("TotalDue > 1000 || Freight > 1000");
 var order = new SalesOrderHeader() { TotalDue = 1200, Freight = 700 };
 bool isHeavyOrExpensive = isHeavyOrExpensiveFormula.Invoke(order);
+```
+
+**Unsafe expressions are blocked:**
+
+If you use an unsafe expression, you'll get an **`UnsafeExpressionException` exception**:
+
+```cs
+var unsafeFormula = UserDefinedExpression<SalesOrderHeader, bool>.Create("System.IO.File.Create(\"dummy\")");
+var order = new SalesOrderHeader() { TotalDue = 1200, Freight = 700 };
+try 
+{
+    bool isHeavyOrExpensive = unsafeFormula.Invoke(order);
+}
+catch(UnsafeExpressionException ex)
+{
+    //ex.Message: 'ForbiddenCall: Cannot use System.IO.File (location : (0,0)-(0,30)): System.IO.File.Create("dummy")'
+}
 ```

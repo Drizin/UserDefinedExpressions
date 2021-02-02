@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>UserDefinedExpressions</id>
+    <version>1.0.0</version>
+    <title>UserDefinedExpressions</title>
+    <authors>Rick Drizin</authors>
+    <owners>Rick Drizin</owners>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/Drizin/UserDefinedExpressions/</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>.NET library to safely invoke (evaluate) User Defined Expressions (Formulas) using Roslyn Scripting Engine</description>
+    <copyright>Copyright Rick Drizin 2021</copyright>
+    <tags>user defined expressions;user defined formulas;roslyn;scripting</tags>
+    <repository type="git" url="https://github.com/Drizin/UserDefinedExpressions/" commit="b9abe45ee94b4b43eb2bd05886fd0b7dae4d59f1" />
+    <dependencies>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="bin\Release\net472\UserDefinedExpressions.*" target="lib\net472" />
+    <file src="bin\Release\netstandard2.1\UserDefinedExpressions.*" target="lib\netstandard2.1" />
+  </files>
+</package>
