@@ -13,7 +13,12 @@ namespace UserDefinedExpressions.SafetyValidators
     [Obsolete("This is very unsafe end-users might write malicious code!")]
     public class UnsafeNoChecksValidator : ISafetyValidator
     {
-        public void Validate(string expression, Script script, List<string> allowedClasses)
+        /// <inheritdoc/>
+        public void Validate()
+        {
+        }
+        /// <inheritdoc/>
+        public void SetInputType(Type inputType)
         {
         }
     }

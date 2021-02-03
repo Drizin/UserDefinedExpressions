@@ -12,9 +12,12 @@ namespace UserDefinedExpressions.SafetyValidators
         /// <summary>
         /// Validates if the expression is safe. Will throw UnsafeFormulaException if unsafe code is detected
         /// </summary>
-        /// <param name="expression"></param>
-        /// <param name="script"></param>
-        /// <param name="allowedClasses"></param>
-        void Validate(string expression, Microsoft.CodeAnalysis.Scripting.Script script, List<string> allowedClasses);
+        void Validate();
+
+        /// <summary>
+        /// Sets the input type (input model available to be used in the expression), so that the validator will mark this type as safe
+        /// </summary>
+        /// <param name="inputType"></param>
+        void SetInputType(Type inputType);
     }
 }

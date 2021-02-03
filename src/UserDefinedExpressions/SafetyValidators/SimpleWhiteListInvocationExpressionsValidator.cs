@@ -12,32 +12,32 @@ namespace UserDefinedExpressions.SafetyValidators
     /// Check only nodes of type InvocationExpression and test them against a white list of allowed classes.
     /// This is SOMEHOW safe, but does NOT check for other calls (like reading Properties, etc)
     /// </summary>
-    public class SimpleWhiteListInvocationExpressionsValidator : ISafetyValidator
+    public class SimpleWhiteListValidator : BaseValidator
     {
         #region Members
-        protected List<string> _allowedClasses;
-        protected Microsoft.CodeAnalysis.Scripting.Script _script;
-        protected SemanticModel _model;
-        protected SyntaxNode _root;
-        string _formula;
+        private HashSet<string> _allowedClasses;
         #endregion
 
-        public SimpleWhiteListInvocationExpressionsValidator()
+        #region ctors
+        /// <inheritdoc/>
+        public SimpleWhiteListValidator(IUserDefinedExpression userDefinedExpression, List<string> allowedClasses) : base(userDefinedExpression)
         {
+            _allowedClasses = new HashSet<string>(allowedClasses.ToList());
         }
 
-
-        public void Validate(string formula, Microsoft.CodeAnalysis.Scripting.Script script, List<string> allowedClasses)
+        /// <inheritdoc/>
+        public SimpleWhiteListValidator(IUserDefinedExpression userDefinedExpression) : this(userDefinedExpression, UserDefinedExpression.DefaultAllowedClasses)
         {
-            _allowedClasses = allowedClasses;
-            _script = script;
-            var actualTree = _script.GetCompilation().SyntaxTrees;
-            _model = _script.GetCompilation().GetSemanticModel(actualTree.Single()); // formulas expect a single root element!
-            _root = (CompilationUnitSyntax)_model.SyntaxTree.GetRoot();
-            _formula = formula;
+        }
+        #endregion
 
+
+        #region overrides
+        /// <inheritdoc/>
+        public override void Validate()
+        {
             var allInstructions = _root.DescendantNodes().ToList(); // if we wanted to explore whole tree by types (without traversing tree)
-            // based on https://github.com/dotnet/roslyn/issues/10830#issuecomment-554909161
+                                                                    // based on https://github.com/dotnet/roslyn/issues/10830#issuecomment-554909161
             var invocationExpressions = _root.DescendantNodes().Where(i => i.IsKind(SyntaxKind.InvocationExpression)).OfType<InvocationExpressionSyntax>();
             //bool forbiddenCall = false;
             //Type[] _allowedTypes = new Type[] { };
@@ -52,7 +52,7 @@ namespace UserDefinedExpressions.SafetyValidators
                     if (!allowedClassesCalls.Contains(symbolInfo.Symbol.ContainingSymbol.ToString()))
                     {
                         //forbiddenCall = true;
-                        throw new UnsafeExpressionException(_formula, invocationExpression, symbolInfo);
+                        throw new UnsafeExpressionException(_expression, invocationExpression, symbolInfo);
                     }
                 }
                 else if (symbolInfo.CandidateSymbols != null)
@@ -62,13 +62,21 @@ namespace UserDefinedExpressions.SafetyValidators
                         if (!allowedClassesCalls.Contains(symbol.ContainingSymbol.ToString()))
                         {
                             //forbiddenCall = true;
-                            throw new UnsafeExpressionException(_formula, invocationExpression, symbolInfo);
+                            throw new UnsafeExpressionException(_expression, invocationExpression, symbolInfo);
                         }
                     }
                 }
             }
 
         }
+
+        /// <inheritdoc/>
+        public override void SetInputType(Type inputType)
+        {
+            _allowedClasses.Add(inputType.FullName);
+        }
+
+        #endregion
 
     }
 }

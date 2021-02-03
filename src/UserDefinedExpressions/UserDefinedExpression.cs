@@ -2,13 +2,20 @@
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.CodeAnalysis.Scripting.Hosting;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using UserDefinedExpressions.SafetyValidators;
 
 namespace UserDefinedExpressions
 {
+    public interface IUserDefinedExpression
+    {
+        string Expression { get; }
+        Script Script { get; }
+    }
     public abstract class UserDefinedExpression
     {
         // This non-generic base type is basically to share static fields (defaults)
@@ -16,7 +23,7 @@ namespace UserDefinedExpressions
         /// <summary>
         /// How expressions are checked for safety. Default is WhiteListSyntaxTree
         /// </summary>
-        public static ISafetyValidator DefaultSafetyValidator { get; set; } = new StrictWhiteListSyntaxTreeValidator();
+        public static Func<IUserDefinedExpression, ISafetyValidator> DefaultSafetyValidatorFactory { get; set; }
         
         /// <summary>
         /// Classes which are safe to use in expressions
@@ -36,37 +43,48 @@ namespace UserDefinedExpressions
     /// Given an INPUT model (variables which are available to my expression) and an OUTPUT (which is probably boolean for most cases), <br />
     /// this allows to have "safe" expressions/formulas (cannot access external variables)
     /// </summary>
-    /// <typeparam name="I">Input type - properties which are available to be used in the expression/formula</typeparam>
-    /// <typeparam name="O">Output type - which output is returned by the expression/formula</typeparam>
+    /// <typeparam name="TInput">Input type - properties which are available to be used in the expression/formula</typeparam>
+    /// <typeparam name="TOutput">Output type - which output is returned by the expression/formula</typeparam>
     [System.Diagnostics.DebuggerDisplay("{_expression}")]
-    public class UserDefinedExpression<I, O> : UserDefinedExpression, IDisposable
+    public class UserDefinedExpression<TInput, TOutput> : UserDefinedExpression, IDisposable, IUserDefinedExpression
     {
         #region Members
-        private Microsoft.CodeAnalysis.Scripting.Script<O> _script;
-        private Microsoft.CodeAnalysis.Scripting.ScriptRunner<O> _runner;
-        private Func<I, O> _invoker;
+        private Script<TOutput> _script;
+        private ScriptRunner<TOutput> _runner;
+        private Func<TInput, TOutput> _invoker;
         private string _expression;
-        private static Dictionary<string, UserDefinedExpression<I, O>> cachedExpressions = new Dictionary<string, UserDefinedExpression<I, O>>();
+        private static ConcurrentDictionary<string, UserDefinedExpression<TInput, TOutput>> cachedExpressions = new ConcurrentDictionary<string, UserDefinedExpression<TInput, TOutput>>();
         private ISafetyValidator _validator;
+
+        public string Expression { get => _expression; }
+        public Script Script { get => _script; }
         #endregion
 
         #region ctors
         /// <summary>
         /// Creates a new evaluatable (reusable) User Defined Expression which receives an input I and returns an output type O.
+        /// If the same expression (with same input/output type) is used more than once it will load a cached instances.
+        /// Will use the globally defined <see cref="UserDefinedExpression.DefaultSafetyValidatorFactory"/> or (if not defined) will fallback to the default StrictWhiteListSyntaxTreeValidator
         /// </summary>
-        /// <param name="expression"></param>
-        /// <param name="validator">If not provided will use the global <see cref="UserDefinedExpression.DefaultSafetyValidator"/></param>
-        /// <returns></returns>
-        public static UserDefinedExpression<I, O> Create(string expression, ISafetyValidator validator = null)
+        public static UserDefinedExpression<TInput, TOutput> Create(string expression)
+        {
+            return Create(expression, null);
+        }
+        /// <summary>
+        /// Creates a new evaluatable (reusable) User Defined Expression which receives an input I and returns an output type O.
+        /// If the same expression (with same input/output type) is used more than once it will load a cached instances.
+        /// </summary>
+        /// <param name="validatorFactory">Factory to create a new ISafetyValidator that will be used to check if the expression is safe</param>
+        public static UserDefinedExpression<TInput, TOutput> Create(string expression, Func<IUserDefinedExpression, ISafetyValidator> validatorFactory)
         {
             if (!cachedExpressions.ContainsKey(expression))
             {
-                var userExpression = new UserDefinedExpression<I, O>(expression, validator);
+                var userExpression = new UserDefinedExpression<TInput, TOutput>(expression, validatorFactory);
                 cachedExpressions[expression] = userExpression;
             }
             return cachedExpressions[expression];
         }
-        private UserDefinedExpression(string expression, ISafetyValidator validator)
+        private UserDefinedExpression(string expression, Func<IUserDefinedExpression, ISafetyValidator> validatorFactory)
         {
             #region Script Options
             // https://stackoverflow.com/a/41356621/3606250
@@ -87,13 +105,16 @@ namespace UserDefinedExpressions
             scriptOptions = scriptOptions.AddImports("System.Collections.Generic");
             #endregion
 
-            DefaultAllowedClasses.Add(typeof(I).FullName); // allow to use members from the Input model
             _expression = expression;
-            _script = CSharpScript.Create<O>(expression, scriptOptions, typeof(I), interactiveLoader);
-            _validator = validator ?? DefaultSafetyValidator; // if null validator is provided, let's fallback to the default validator (to be on the safe side)
+            _script = CSharpScript.Create<TOutput>(expression, scriptOptions, typeof(TInput), interactiveLoader);
+            _validator = 
+                validatorFactory?.Invoke(this) // if validator was explicitly passed
+                ?? DefaultSafetyValidatorFactory?.Invoke(this) // else, if there's a default validator factory
+                ?? new StrictWhiteListTypeValidator(this); // else, use this as default validator (to be on the safe side)
+            _validator.SetInputType(typeof(TInput)); // allow to use members from the Input model
 
             // Validates if the expression is safe. Will throw UnsafeExpressionException if unsafe code is detected
-            _validator.Validate(expression, _script, DefaultAllowedClasses);
+            _validator.Validate();
 
             _runner = _script.CreateDelegate();
 
@@ -102,7 +123,7 @@ namespace UserDefinedExpressions
         #endregion
 
         #region Public Methods
-        public O Invoke(I input)
+        public TOutput Invoke(TInput input)
         {
             return _invoker(input);
         }
