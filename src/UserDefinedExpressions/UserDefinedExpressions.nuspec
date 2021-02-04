@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>UserDefinedExpressions</id>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <title>UserDefinedExpressions</title>
     <authors>Rick Drizin</authors>
     <owners>Rick Drizin</owners>
@@ -12,7 +12,7 @@
     <description>.NET library to safely invoke (evaluate) User Defined Expressions (Formulas) using Roslyn Scripting Engine</description>
     <copyright>Copyright Rick Drizin 2021</copyright>
     <tags>user defined expressions;user defined formulas;roslyn;scripting</tags>
-    <repository type="git" url="https://github.com/Drizin/UserDefinedExpressions/" commit="b9abe45ee94b4b43eb2bd05886fd0b7dae4d59f1" />
+    <repository type="git" url="https://github.com/Drizin/UserDefinedExpressions/" commit="5d0551e4a4184a23044831239bb247bab7db486b" />
     <dependencies>
     </dependencies>
   </metadata>
