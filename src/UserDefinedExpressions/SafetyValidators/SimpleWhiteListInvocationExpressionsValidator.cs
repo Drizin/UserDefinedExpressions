@@ -15,19 +15,20 @@ namespace UserDefinedExpressions.SafetyValidators
     public class SimpleWhiteListValidator : BaseValidator
     {
         #region Members
-        private HashSet<string> _allowedClasses;
+        TypesValidator _typesValidator;
         #endregion
 
         #region ctors
         /// <inheritdoc/>
-        public SimpleWhiteListValidator(IUserDefinedExpression userDefinedExpression, List<string> allowedClasses) : base(userDefinedExpression)
+        public SimpleWhiteListValidator(IUserDefinedExpression userDefinedExpression, TypesValidator typesValidator) : base(userDefinedExpression)
         {
-            _allowedClasses = new HashSet<string>(allowedClasses.ToList());
+            _typesValidator = typesValidator;
         }
 
         /// <inheritdoc/>
-        public SimpleWhiteListValidator(IUserDefinedExpression userDefinedExpression) : this(userDefinedExpression, UserDefinedExpression.DefaultAllowedClasses)
+        public SimpleWhiteListValidator(IUserDefinedExpression userDefinedExpression) : base(userDefinedExpression)
         {
+            _typesValidator = new TypesValidator();
         }
         #endregion
 
@@ -41,15 +42,13 @@ namespace UserDefinedExpressions.SafetyValidators
             var invocationExpressions = _root.DescendantNodes().Where(i => i.IsKind(SyntaxKind.InvocationExpression)).OfType<InvocationExpressionSyntax>();
             //bool forbiddenCall = false;
             //Type[] _allowedTypes = new Type[] { };
-            //var allowedClassesCalls = new HashSet<string>(_allowedTypes.Select(i => i.FullName));
-            var allowedClassesCalls = new HashSet<string>(_allowedClasses);
             foreach (var invocationExpression in invocationExpressions)
             {
                 var memberAccessExpressionSyntax = invocationExpression.Expression as MemberAccessExpressionSyntax;
                 var symbolInfo = _model.GetSymbolInfo(memberAccessExpressionSyntax);
                 if (symbolInfo.Symbol != null)
                 {
-                    if (!allowedClassesCalls.Contains(symbolInfo.Symbol.ContainingSymbol.ToString()))
+                    if (!_typesValidator.IsSafe(symbolInfo.Symbol.ContainingSymbol.ToString()))
                     {
                         //forbiddenCall = true;
                         throw new UnsafeExpressionException(_expression, invocationExpression, symbolInfo);
@@ -59,7 +58,7 @@ namespace UserDefinedExpressions.SafetyValidators
                 {
                     foreach (var symbol in symbolInfo.CandidateSymbols) // if any ambiguity in the method, candidates are here. Surprisingly, for the actual execution roslyn has no pb choosing the right one
                     {
-                        if (!allowedClassesCalls.Contains(symbol.ContainingSymbol.ToString()))
+                        if (!_typesValidator.IsSafe(symbol.ContainingSymbol.ToString()))
                         {
                             //forbiddenCall = true;
                             throw new UnsafeExpressionException(_expression, invocationExpression, symbolInfo);
@@ -73,7 +72,7 @@ namespace UserDefinedExpressions.SafetyValidators
         /// <inheritdoc/>
         public override void SetInputType(Type inputType)
         {
-            _allowedClasses.Add(inputType.FullName);
+            _typesValidator.AddAllowedType(inputType);
         }
 
         #endregion

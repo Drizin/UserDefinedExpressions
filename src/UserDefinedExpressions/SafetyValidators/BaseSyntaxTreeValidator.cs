@@ -96,6 +96,7 @@ namespace UserDefinedExpressions.SafetyValidators
                     case SyntaxKind.AddExpression:
                     case SyntaxKind.MultiplyExpression:
                     case SyntaxKind.DivideExpression:
+                    case SyntaxKind.UnaryMinusExpression:
 
                     // literals
                     case SyntaxKind.NumericLiteralExpression:
@@ -132,8 +133,8 @@ namespace UserDefinedExpressions.SafetyValidators
                     case SyntaxKind.InvocationExpression:
                         {
                             var expression = ((InvocationExpressionSyntax)node).Expression as ExpressionSyntax;
-                            //ValidateExpression(node, expression);
-                            ValidateIdentifier(node);
+                            ValidateExpression(node, expression);
+                            //ValidateIdentifier(node);
                         }
                         break;
 
@@ -142,16 +143,16 @@ namespace UserDefinedExpressions.SafetyValidators
                     case SyntaxKind.PointerMemberAccessExpression:
                     case SyntaxKind.SimpleMemberAccessExpression:
                         {
-                            //var expression = ((MemberAccessExpressionSyntax)node).Expression as ExpressionSyntax;
-                            //ValidateExpression(node, expression);
-                            ValidateIdentifier(node);
+                            var expression = ((MemberAccessExpressionSyntax)node).Expression as ExpressionSyntax;
+                            ValidateExpression(node, expression);
+                            //ValidateIdentifier(node);
                         }
                         break;
                     case SyntaxKind.ElementAccessExpression:
                         {
                             var expression = ((ElementAccessExpressionSyntax)node).Expression as ExpressionSyntax;
-                            //ValidateExpression(node, expression);
-                            ValidateIdentifier(node);
+                            ValidateExpression(node, expression);
+                            //ValidateIdentifier(node);
                         }
                         break;
                     case SyntaxKind.ObjectCreationExpression:
@@ -204,10 +205,18 @@ namespace UserDefinedExpressions.SafetyValidators
             }
             void ValidateExpression(SyntaxNode node, ExpressionSyntax expressionSyntax)
             {
-                var typeInfo = _model.GetTypeInfo(node);
+                var typeInfo = _model.GetTypeInfo(expressionSyntax);
                 var symbolInfo = _model.GetSymbolInfo(expressionSyntax);
 
-                string identifierType = typeInfo.Type.ToString(); // e.g. UserDefinedExpressions.Tests.AventureWorksEntities.Customer
+                var typeInfo2 = _model.GetTypeInfo(node); 
+                var symbolInfo2 = _model.GetSymbolInfo(node);
+                //if (!typeInfo.Equals(typeInfo2) && System.Diagnostics.Debugger.IsAttached)
+                //    System.Diagnostics.Debugger.Break();
+                //if (!symbolInfo.Equals(symbolInfo2) && System.Diagnostics.Debugger.IsAttached)
+                //    System.Diagnostics.Debugger.Break();
+
+
+                string identifierType = typeInfo.Type?.ToString() ?? typeInfo2.Type?.ToString(); // e.g. UserDefinedExpressions.Tests.AventureWorksEntities.Customer
 
                 // roslyn may find the exact symbol or may be uncertain about a list of possible symbols that code refers to
                 var possibleSymbols = GetPossibleSymbols(symbolInfo); 
@@ -222,8 +231,16 @@ namespace UserDefinedExpressions.SafetyValidators
                         if ((symbol as INamespaceOrTypeSymbol) != null && ((INamespaceOrTypeSymbol)symbol).IsType) { } else System.Diagnostics.Debugger.Break();
                     }
 
+                    if (symbol.ContainingType != null
+                        && ((Microsoft.CodeAnalysis.ISymbol)symbol.ContainingType).IsImplicitlyDeclared
+                        && ((Microsoft.CodeAnalysis.ITypeSymbol)symbol.ContainingType).TypeKind == TypeKind.Submission
+                        && ((Microsoft.CodeAnalysis.ISymbol)symbol.ContainingType).Kind == SymbolKind.NamedType
+                        )
+                        continue; // lambda reference
+
                     if (_validator.IsSafeSymbol(symbol, identifierType, identifierName, containerType))
                         continue;
+
                     throw new UnsafeExpressionException(_expression, node, symbolInfo);
                 }
             }
@@ -247,10 +264,17 @@ namespace UserDefinedExpressions.SafetyValidators
                     {
                         if ((symbol as INamespaceOrTypeSymbol) != null && ((INamespaceOrTypeSymbol)symbol).IsType) { } else System.Diagnostics.Debugger.Break();
                     }
-                        
+
+                    if (symbol.ContainingType != null
+                        && ((Microsoft.CodeAnalysis.ISymbol)symbol.ContainingType).IsImplicitlyDeclared
+                        && ((Microsoft.CodeAnalysis.ITypeSymbol)symbol.ContainingType).TypeKind == TypeKind.Submission
+                        && ((Microsoft.CodeAnalysis.ISymbol)symbol.ContainingType).Kind == SymbolKind.NamedType
+                        )
+                        continue; // lambda reference
 
                     if (_validator.IsSafeSymbol(symbol, identifierType, identifierName, containerType))
                         continue;
+
                     throw new UnsafeExpressionException(_expression, node, symbolInfo);
                 }
 

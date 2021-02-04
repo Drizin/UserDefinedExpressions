@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using NUnit.Framework;
+using UserDefinedExpressions.SafetyValidators;
 using UserDefinedExpressions.Tests.AventureWorksEntities;
 
 namespace UserDefinedExpressions.Tests
@@ -35,7 +36,7 @@ namespace UserDefinedExpressions.Tests
         {
             Assert.DoesNotThrow(() =>
             {
-                UserDefinedExpression.DefaultAllowedClasses.Add("UserDefinedExpressions.Tests.AventureWorksEntities.Customer");
+                TypesValidator.Defaults.AddAllowedType(typeof(Customer));
                 var unsafeExpression = UserDefinedExpression<SalesOrderHeader, bool>.Create("Customer.PersonId != null");
                 bool result = unsafeExpression.Invoke(order);
             });

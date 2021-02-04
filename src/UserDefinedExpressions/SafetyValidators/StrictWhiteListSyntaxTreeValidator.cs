@@ -16,19 +16,20 @@ namespace UserDefinedExpressions.SafetyValidators
     public class StrictWhiteListTypeValidator : BaseSyntaxTreeValidator
     {
         #region Members
-        private HashSet<string> _allowedClasses;
+        TypesValidator _typesValidator;
         #endregion
 
         #region ctors
         /// <inheritdoc/>
-        public StrictWhiteListTypeValidator(IUserDefinedExpression userDefinedExpression, List<string> allowedClasses) : base(userDefinedExpression)
+        public StrictWhiteListTypeValidator(IUserDefinedExpression userDefinedExpression, TypesValidator typesValidator) : base(userDefinedExpression)
         {
-            _allowedClasses = new HashSet<string>(allowedClasses.ToList());
+            _typesValidator = typesValidator;
         }
 
         /// <inheritdoc/>
-        public StrictWhiteListTypeValidator(IUserDefinedExpression userDefinedExpression) : this(userDefinedExpression, UserDefinedExpression.DefaultAllowedClasses)
+        public StrictWhiteListTypeValidator(IUserDefinedExpression userDefinedExpression) : base(userDefinedExpression)
         {
+            _typesValidator = new TypesValidator();
         }
         #endregion
 
@@ -36,20 +37,27 @@ namespace UserDefinedExpressions.SafetyValidators
         /// <inheritdoc/>
         public override bool IsSafeSymbol(ISymbol symbol, string identifierType, string identifierName, string containerType)
         {
+            //Type t = Type.GetType("System.Collections.Generic.List<System.DateTime>");
             //return _allowedClasses.Contains(symbol.ToString()) || _allowedClasses.Contains(containerType);
-            return _allowedClasses.Contains(containerType);
+            if (symbol.IsImplicitlyDeclared && _typesValidator.IsSafe(identifierType)) // if it's a lambda variable and we're acessing an allowed type
+                return true;
+
+            if (_typesValidator.IsSafe(containerType) && !string.IsNullOrEmpty(identifierType) && !_typesValidator.IsSafe(identifierType)) // just checking if we should test 
+                if (System.Diagnostics.Debugger.IsAttached)
+                    System.Diagnostics.Debugger.Break();
+            return _typesValidator.IsSafe(containerType); // if we're acessing some property from an allowed type
         }
 
         /// <inheritdoc/>
         public override bool IsSafeType(string typeFullName)
         {
-            return _allowedClasses.Contains(typeFullName);
+            return _typesValidator.IsSafe(typeFullName);
         }
 
         /// <inheritdoc/>
         public override void SetInputType(Type inputType)
         {
-            _allowedClasses.Add(inputType.FullName);
+            _typesValidator.AddAllowedType(inputType);
         }
         #endregion
     }

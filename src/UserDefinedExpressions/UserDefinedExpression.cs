@@ -24,18 +24,6 @@ namespace UserDefinedExpressions
         /// How expressions are checked for safety. Default is WhiteListSyntaxTree
         /// </summary>
         public static Func<IUserDefinedExpression, ISafetyValidator> DefaultSafetyValidatorFactory { get; set; }
-        
-        /// <summary>
-        /// Classes which are safe to use in expressions
-        /// </summary>
-        public static List<string> DefaultAllowedClasses = new List<string>()
-        {
-            "System.Collections.Generic.Dictionary<string, decimal>", //TODO: regex? or get the types of Symbols and compare with generic types?
-            "System.Collections.Generic.Dictionary<string, string>",
-            "string",
-            "System.DateTime",
-            "System.Linq.Enumerable",
-        };
         #endregion
     }
 
